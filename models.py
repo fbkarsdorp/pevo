@@ -47,7 +47,6 @@ class NeutralModel(object):
         "Run the simulation model."
         self.progress = pyprind.ProgBar(self.T)        
         for t in range(self.T):
-            print self.population,
             if self.n_traits <= self.max_traits:
                 parents = self.rnd.randint(self.N, size=self.N)
                 models = self.population[parents]
@@ -63,8 +62,7 @@ class NeutralModel(object):
                 # compute frequency of traits in time step t
                 counts, _ = np.histogram(self.population, np.arange(self.max_traits + 1))
                 self.freq_traits[t] = counts
-                # self.progress.update()
-            print self.parents[t]
+                self.progress.update()
         # update idnumbers of parents, each unique for a time step.
         innovations = np.where(self.parents == -1)
         self.parents += np.array([np.arange(self.T) * self.N]).T

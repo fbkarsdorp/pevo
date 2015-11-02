@@ -2,10 +2,12 @@ import numpy as np
 import seaborn as sns
 
 from scipy.optimize import curve_fit
-
+from collections import Counter
+import pyprind
 
 def simulate(model, iterations=100):
-    turnovers = []
+    turnovers, lorenzs, ginis = [], [], []
+    progress = pyprind.ProgBar(iterations)       
     for iteration in range(iterations):
         m = model.__class__(**model.__dict__)
         m.run()
@@ -13,7 +15,14 @@ def simulate(model, iterations=100):
         data = m.freq_traits[m.freq_traits.shape[0] - span - 50 - 1: m.freq_traits.shape[0] - 50]
         t = turnover(data, span, y=20).mean(0)
         turnovers.append(t)
-    return turnovers
+        parents = m.parents[m.parents.shape[0] - span - 50 - 1: m.parents.shape[0] - 50]
+        parents = parents.ravel()
+        parents = list(Counter(parents[parents > -1]).values())
+        _, l = lorenz(parents)
+        lorenzs.append(l)
+        ginis.append(gini_coeff(parents))
+        progress.update()
+    return turnovers, lorenzs, ginis
 
 def gini_coeff(data):
     d = sorted(data, reverse=True)
@@ -70,9 +79,9 @@ def turnover_plot(t):
     def z(x, a, b):
         return a * x ** b
 
-    sns.plt.plot(t, 'o')
+    sns.plt.plot(t, 'o', markeredgewidth=1, markeredgecolor='k', markerfacecolor='None')
     popt, pcov = curve_fit(z, np.arange(t.shape[0]), t)
-    print "a = %.3f; b = %.3f" % (popt[0], popt[1])
+    print("a = %.3f; b = %.3f" % (popt[0], popt[1]))
     sns.plt.plot(z(np.arange(t.shape[0]), *popt), '-k')
     sns.plt.ylabel("z"); sns.plt.xlabel("y")
     sns.plt.show()

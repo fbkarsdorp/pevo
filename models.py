@@ -1,5 +1,6 @@
 from collections import Counter
 
+import networkx as nx
 import numpy as np
 from numpy.random.mtrand import dirichlet
 import seaborn as sns
@@ -18,7 +19,7 @@ class NeutralModel(object):
       http://doi.org/10.1098/rspb.2004.2746
     """
 
-    def __init__(self, N=100, mu=0.01, seed=None, **kwargs):
+    def __init__(self, N=100, mu=0.01, seed=None, progressbar=True, yield_population=False, **kwargs):
         """
         Initialize the Neutral model.
             
@@ -41,10 +42,13 @@ class NeutralModel(object):
         self.n_traits = N
         self.freq_traits = np.zeros((self.T, self.max_traits))
         self.parents = np.zeros((self.T, N), dtype=np.int)
+        self.progressbar = progressbar
+        self.yield_population = yield_population
 
     def run(self):
         "Run the simulation model."
-        self.progress = pyprind.ProgBar(self.T)        
+        if self.progressbar:
+            self.progress = pyprind.ProgBar(self.T)        
         for t in range(self.T):
             if self.n_traits <= self.max_traits:
                 parents = self.rnd.randint(self.N, size=self.N)
@@ -61,7 +65,10 @@ class NeutralModel(object):
                 # compute frequency of traits in time step t
                 counts, _ = np.histogram(self.population, np.arange(self.max_traits + 1))
                 self.freq_traits[t] = counts
-                self.progress.update()
+                if self.progressbar:
+                    self.progress.update()
+                # if self.yield_population:
+                #     yield self.population
         # update idnumbers of parents, each unique for a time step.
         innovations = np.where(self.parents == -1)
         self.parents += np.array([np.arange(self.T) * self.N]).T
@@ -86,7 +93,30 @@ class NeutralModel(object):
         data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
         data = data.ravel()
         p, c =  lorenz(Counter(data[data > -1]).values())
-        sns.plt.plot(p, c, 'o')
+        sns.plt.plot(c, p, 'o')
+        return p, c
+
+    def to_graph(self):
+        G = nx.DiGraph()
+        span = int(self.mu ** -1)
+        data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
+        start = self.parents.shape[0] - span - 50 - 1
+        for i in range(data.shape[0]):
+            parents = data[i]
+            children = np.arange(self.N) + self.N * (i + start + 1)
+            assert np.all(children > parents)
+            for parent, child in zip(parents, children):
+                if parent >= 0:
+                    G.add_edge(child, parent)
+                else:
+                    G.add_node(child)
+        return G
+
+    def degree_distribution(self):
+        span = int(self.mu ** -1)
+        data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
+        data = data.ravel()
+        return Counter(data[data > -1]).values()
 
 
 class ContentBiasedModel(NeutralModel):
@@ -105,7 +135,7 @@ class ContentBiasedModel(NeutralModel):
       turnover of popular traits. Evolution and Human Behavior, 35(3), 228-236. 
       http://doi.org/10.1016/j.evolhumbehav.2014.02.003
     """
-    def __init__(self, N=100, mu=0.01, C=0.5, seed=None):
+    def __init__(self, N=100, mu=0.01, C=0.5, seed=None, **kwargs):
         """
         Initialize the ContentBiasedModel
 
@@ -123,7 +153,7 @@ class ContentBiasedModel(NeutralModel):
         seed : integer, default = None
             Random state seed.
         """
-        super(ContentBiasedModel, self).__init__(N=N, mu=mu, seed=seed)
+        super(ContentBiasedModel, self).__init__(N=N, mu=mu, seed=seed, **kwargs)
         self.C = C
 
     def copy(self, t, models, parents):
@@ -179,7 +209,7 @@ class ConformistModel(ContentBiasedModel):
         seed : integer, default = None
             Random state seed.        
         """
-        super(ConformistModel, self).__init__(N=N, mu=mu, C=C, seed=seed)
+        super(ConformistModel, self).__init__(N=N, mu=mu, C=C, seed=seed, **kwargs)
         self.n_best = n_best
 
     def select_biased(self, t):
@@ -219,7 +249,7 @@ class AntiConformistModel(ContentBiasedModel):
         seed : integer, default = None
             Random state seed.
         """            
-        super(AntiConformistModel, self).__init__(N=N, mu=mu, C=C, seed=seed)
+        super(AntiConformistModel, self).__init__(N=N, mu=mu, C=C, seed=seed, **kwargs)
         self.n_best = n_best
 
     def select_biased(self, t):
@@ -255,12 +285,11 @@ class AttractionModel(ContentBiasedModel):
         seed : integer, default = None
             Random state seed.
         """        
-        super(AttractionModel, self).__init__(N=N, mu=mu, seed=seed)
+        super(AttractionModel, self).__init__(N=N, mu=mu, seed=seed, **kwargs)
         self.alpha = self.rnd.randn(self.max_traits)
 
     def select_biased(self, t):
         return self.alpha[self.population] < self.alpha[self.rnd.randint(self.N)]
-
 
 
 class ExemplarModel(NeutralModel):
@@ -293,7 +322,7 @@ class ExemplarModel(NeutralModel):
         seed : integer, default = None
             Random state seed.
         """        
-        super(ExemplarModel, self).__init__(N=N, mu=mu, seed=seed)
+        super(ExemplarModel, self).__init__(N=N, mu=mu, seed=seed, **kwargs)
         self.alpha = alpha
         self.C = C
 

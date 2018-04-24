@@ -3,7 +3,6 @@ from collections import Counter
 import networkx as nx
 import numpy as np
 from numpy.random.mtrand import dirichlet
-import seaborn as sns
 import matplotlib.pyplot as plt
 import tqdm
 

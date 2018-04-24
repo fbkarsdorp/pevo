@@ -1,5 +1,4 @@
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 from scipy.optimize import curve_fit

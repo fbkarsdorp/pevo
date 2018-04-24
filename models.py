@@ -4,7 +4,8 @@ import networkx as nx
 import numpy as np
 from numpy.random.mtrand import dirichlet
 import seaborn as sns
-import pyprind
+import matplotlib.pyplot as plt
+import tqdm
 
 from utils import turnover, turnover_plot, lorenz
 
@@ -19,7 +20,7 @@ class NeutralModel(object):
       http://doi.org/10.1098/rspb.2004.2746
     """
 
-    def __init__(self, N=100, mu=0.01, seed=None, progressbar=True, yield_population=False, **kwargs):
+    def __init__(self, N=100, mu=0.01, seed=None, **kwargs):
         """
         Initialize the Neutral model.
             
@@ -42,14 +43,10 @@ class NeutralModel(object):
         self.n_traits = N
         self.freq_traits = np.zeros((self.T, self.max_traits))
         self.parents = np.zeros((self.T, N), dtype=np.int)
-        self.progressbar = progressbar
-        self.yield_population = yield_population
 
     def run(self):
         "Run the simulation model."
-        if self.progressbar:
-            self.progress = pyprind.ProgBar(self.T)        
-        for t in range(self.T):
+        for t in tqdm.tqdm(range(self.T)):
             if self.n_traits <= self.max_traits:
                 parents = self.rnd.randint(self.N, size=self.N)
                 models = self.population[parents]
@@ -65,10 +62,6 @@ class NeutralModel(object):
                 # compute frequency of traits in time step t
                 counts, _ = np.histogram(self.population, np.arange(self.max_traits + 1))
                 self.freq_traits[t] = counts
-                if self.progressbar:
-                    self.progress.update()
-                # if self.yield_population:
-                #     yield self.population
         # update idnumbers of parents, each unique for a time step.
         innovations = np.where(self.parents == -1)
         self.parents += np.array([np.arange(self.T) * self.N]).T
@@ -84,7 +77,7 @@ class NeutralModel(object):
         "Plot a turnover plot as described in Acerbi & Bentley (2014)."
         span = int(self.mu ** -1)
         data = self.freq_traits[self.freq_traits.shape[0] - span - 50 - 1: self.freq_traits.shape[0] - 50]
-        t = turnover(data, span, y=20).mean(0)
+        t = turnover(data, span, y=y).mean(0)
         turnover_plot(t)
 
     def lorenz_curve(self):
@@ -93,7 +86,7 @@ class NeutralModel(object):
         data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
         data = data.ravel()
         p, c =  lorenz(Counter(data[data > -1]).values())
-        sns.plt.plot(c, p, 'o')
+        plt.plot(c, p, 'o')
         return p, c
 
     def to_graph(self):
@@ -116,7 +109,7 @@ class NeutralModel(object):
         span = int(self.mu ** -1)
         data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
         data = data.ravel()
-        return Counter(data[data > -1]).values()
+        return Counter(data[data > -1])
 
 
 class ContentBiasedModel(NeutralModel):

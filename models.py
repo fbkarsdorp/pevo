@@ -1,4 +1,4 @@
-from collections import Counter
+import collections
 
 import networkx as nx
 import numpy as np
@@ -19,7 +19,7 @@ class NeutralModel(object):
       http://doi.org/10.1098/rspb.2004.2746
     """
 
-    def __init__(self, N=100, mu=0.01, seed=None, **kwargs):
+    def __init__(self, N=100, mu=0.01, T=None, yield_population=False, seed=None, **kwargs):
         """
         Initialize the Neutral model.
             
@@ -36,7 +36,8 @@ class NeutralModel(object):
         self.N = N
         self.mu = mu
         self.rnd = np.random.RandomState(seed)
-        self.T = int(4 * (mu ** -1) + (mu ** -1) + 50)
+        self.T = int(4 * (mu ** -1) + (mu ** -1) + 50) if T is None else T
+        self.yield_population = yield_population
         self.max_traits = int(np.floor(N + N * self.T * mu))
         self.population = np.arange(N)
         self.n_traits = N
@@ -61,6 +62,8 @@ class NeutralModel(object):
                 # compute frequency of traits in time step t
                 counts, _ = np.histogram(self.population, np.arange(self.max_traits + 1))
                 self.freq_traits[t] = counts
+                if self.yield_population:
+                    yield self.population
         # update idnumbers of parents, each unique for a time step.
         innovations = np.where(self.parents == -1)
         self.parents += np.array([np.arange(self.T) * self.N]).T
@@ -79,12 +82,18 @@ class NeutralModel(object):
         t = turnover(data, span, y=y).mean(0)
         turnover_plot(t)
 
+    def frequency_distribution(self):
+        span = int(self.mu ** -1)
+        data = self.freq_traits[self.freq_traits.shape[0] - span - 50 - 1: self.freq_traits.shape[0] - 50]
+        data = data.sum(0)
+        return data[data > 0]
+
     def lorenz_curve(self):
         "Plot the Lorenz curve over the parents."
         span = int(self.mu ** -1)
         data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
         data = data.ravel()
-        p, c =  lorenz(Counter(data[data > -1]).values())
+        p, c =  lorenz(collections.Counter(data[data > -1]).values())
         plt.plot(c, p, 'o')
         return p, c
 
@@ -108,7 +117,15 @@ class NeutralModel(object):
         span = int(self.mu ** -1)
         data = self.parents[self.parents.shape[0] - span - 50 - 1: self.parents.shape[0] - 50]
         data = data.ravel()
-        return Counter(data[data > -1])
+        return collections.Counter(data[data > -1]).values()
+
+
+class IndependentSelectionModel(NeutralModel):
+    def __init__(self, N=100, mu=0.01, seed=None, **kwargs):
+        super(IndependentSelectionModel, self).__init__(N=N, mu=mu, seed=seed, **kwargs)
+
+    def copy(self, t, models, parents):
+        self.population = self.rnd.randint(self.population.max(), size=self.N)
 
 
 class ContentBiasedModel(NeutralModel):

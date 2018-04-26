@@ -32,7 +32,9 @@ ax = plt.subplot(aspect='equal')
 traits = next(model_run).reshape(8, 8)
 im = ax.imshow(np.ones((8, 8)), cmap="Greys")
 for (i, j), z in np.ndenumerate(traits):
-    ax.text(j, i, icons[z], ha='center', va='center', fontproperties=fm.FontProperties(fname=FONTAWESOME_FILE, size=20), color="#3498db")
+    ax.text(j, i, icons[z], ha='center', va='center',
+            fontproperties=fm.FontProperties(fname=FONTAWESOME_FILE, size=20),
+            color="#3498db")
 plt.axis('tight')
 plt.axis('off')
 

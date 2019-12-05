@@ -29,6 +29,7 @@ model_run = model.run()
 print(model.max_traits)
 f = plt.figure(figsize=(8, 8))
 ax = plt.subplot(aspect='equal')
+ax.set_facecolor('#EAE8D2')
 traits = next(model_run).reshape(8, 8)
 im = ax.imshow(np.ones((8, 8)), cmap="Greys")
 for (i, j), z in np.ndenumerate(traits):
@@ -48,7 +49,7 @@ def make_frame_mpl(t):
 
 animation = mpy.VideoClip(make_frame_mpl,
                           duration=model.T - 50)
-animation.write_videofile("images/%s_matrix.mp4" % sys.argv[1], fps=10)
+animation.write_videofile("images/%s_matrix.mp4" % sys.argv[1], fps=10, audio=False)
 
 
 
